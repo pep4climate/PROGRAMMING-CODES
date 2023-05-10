@@ -28,7 +28,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
 
     B_prime = fd.width - 2 * e_width
     L_prime = fd.length - 2 * e_length
-    
+
     shape = input("Input foundation shape: 'rectangular' or 'squared' or 'circular'")
     if shape == 'rectangular' or 'squared':
         A_prime = B_prime * L_prime
@@ -53,15 +53,15 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
 
     # s coefficients
     if sl.phi == 0:
-        if L_prime/B_prime != 1:
+        if shape == 'rectangular':
             s_c = 1 + 0.2 * (B_prime/L_prime)
-        else:
+        elif shape == 'squared' or ' circular':
             s_c = 1 + 0.2
     else:
-        if L_prime/B_prime != 1:
+        if shape == 'rectangular':
             s_q = 1 + (B_prime/L_prime) * np.sin(np.radians(sl.phi))
             s_gamma = 1 - 0.3 * (B_prime/L_prime)
-        else:
+        elif shape == 'circular' or 'squared':
             s_q = 1 + np.sin(np.radians(sl.phi))
             s_gamma = 1 - 0.3
         s_c = (s_q * sl.N_q - 1)/(sl.N_q - 1)
@@ -126,12 +126,13 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
 
     # Lateral soil
     D = lat_sl.depth
+    D_w = gw.depth 
 
-    if gw.depth > D:
+    if D_w > D:
        lat_sl.unit_weight = sl.dry_unit_weight
-    elif 0 < gw.depth <=D:
-        lat_sl.unit_weight = (sl.dry_unit_weight * gw.depth) + (sl.sat_unit_weight - gw.unit_weight) * (D - gw.depth)/gw.depth
-    elif gw.depth == 0:
+    elif 0 < D_w <=D:
+        lat_sl.unit_weight = (sl.dry_unit_weight * D_w) + (sl.sat_unit_weight - gw.unit_weight) * (D - D_w)/D_w
+    elif D_w == 0:
         lat_sl.unit_weight = sl.sat_unit_weight - gw.unit_weight
 
     q = lat_sl.unit_weight * D # overburden pressure
@@ -141,11 +142,11 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     q_river = gw.unit_weight * h
 
     # Foundation soil
-    if gw.depth > (B_prime + D):
+    if D_w > (B_prime + D):
         sl.prime_unit_weight = sl.dry_unit_weight
-    elif D < gw.depth <= (B_prime + D):
-        sl.prime_unit_weight = (sl.sat_unit_weight - gw.unit_weight) + (gw.depth - D)/(B_prime) * gw.unit_weight
-    elif gw.depth <= D:
+    elif D < D_w <= (B_prime + D):
+        sl.prime_unit_weight = (sl.sat_unit_weight - gw.unit_weight) + (D_w - D)/(B_prime) * gw.unit_weight
+    elif D_w <= D:
         sl.prime_unit_weight = sl.sat_unit_weight - gw.unit_weight
 
     # Capacity
