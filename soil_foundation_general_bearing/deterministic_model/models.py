@@ -27,7 +27,8 @@ def create_groundwater(groundwater_depth):
     Function to create a groundwater object.
     """
     a_groundwater = Groundwater()
-    a_groundwater.depth = groundwater_depth # ground water level from mean riverbed level
+    # ground water level from mean riverbed level
+    a_groundwater.depth = groundwater_depth 
     return a_groundwater
 
 def create_lateral_soil(lateral_soil_depth, beta):

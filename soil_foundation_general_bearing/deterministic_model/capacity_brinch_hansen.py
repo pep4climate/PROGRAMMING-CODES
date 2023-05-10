@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     """
@@ -35,7 +36,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     elif shape == 'circular':
         A_prime = np.pi * np.power(B_prime, 2)/4
 
-    #Capacity factors
+    # Capacity factors
     sl.N_q = np.exp(np.pi * np.tan(np.radians(sl.phi))) * np.power(np.tan(np.radians(45 + sl.phi/2)), 2)
     sl.N_gamma = 2 * (sl.N_q - 1) * np.tan(np.radians(sl.phi)) # for base friction angle at least equal to half friction angle
     if sl.phi != 0:
@@ -95,18 +96,23 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     else:
         i_c = i_q - (1 - i_q)/(sl.N_c * np.tan(np.radians(sl.phi)))
 
+    # Lateral soil
+    D = lat_sl.depth
+
     # d coefficients
     foundation_depth_effects = input('Would you like to consider foundation depth effects?')
+    d_gamma = 1
     if foundation_depth_effects == 'yes':
-        d_gamma = 1
         if D <= B_prime:
             k = D/B_prime
         else:
             k = 1/np.tan(D/B_prime)
-        d_c = 1.0 + 0.4 * k
+        if sl.phi == 0:
+            d_c = 0.4 * k
+        else:
+            d_c = 1.0 + 0.4 * k
         d_q = 1 + 2 * np.tan(np.radians(sl.phi)) * np.power((1 - np.sin(np.radians(sl.phi))),2) * k
     else:
-        d_gamma = 1
         d_c = 1
         d_q = 1
 
@@ -114,18 +120,17 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     lateral_soil_slope_effects = input('Would you like to consider lateral soil slope effects?')
     if lateral_soil_slope_effects == 'yes':
         if sl.phi == 0:
-            g_c = np.radians(lat_sl.beta)/5.14
+            g_c = np.radians(lat_sl.beta)/(5.14/2)
         else:
-            g_c = i_q - (1 - i_q)/(5.14 * np.tan(np.radians(sl.phi)))
-        g_q = np.power(1 - np.tan(np.radians(lat_sl.beta)), 2)
+            g_c = 1 - np.radians(lat_sl.beta)/(5.14/2) 
+        g_q = np.power(1 - 1/2 * np.tan(np.radians(lat_sl.beta)), 2)
         g_gamma = g_q
     else:
         g_c = 1
         g_q = 1
         g_gamma = 1
 
-    # Lateral soil
-    D = lat_sl.depth
+    # Groundwater
     D_w = gw.depth 
 
     if D_w > D:
@@ -145,22 +150,74 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     if D_w > (B_prime + D):
         sl.prime_unit_weight = sl.dry_unit_weight
     elif D < D_w <= (B_prime + D):
-        sl.prime_unit_weight = (sl.sat_unit_weight - gw.unit_weight) + (D_w - D)/(B_prime) * gw.unit_weight
+        sl.prime_unit_weight = (sl.dry_unit_weight * D_w) + (sl.sat_unit_weight - gw.unit_weight) * (D + B_prime - D_w)/(D_w)
     elif D_w <= D:
         sl.prime_unit_weight = sl.sat_unit_weight - gw.unit_weight
 
     # Capacity
     river_level_effects = input('Would you like to consider river level pressure effects?')
+    q_ult_first_term = sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c
+    q_ult_second_term = q * sl.N_q * b_q * s_q * i_q * d_q * g_q
+    q_ult_third_term = 1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma
     if river_level_effects == 'yes':
-        sl_fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
-                    q * sl.N_q * b_q * s_q * i_q * d_q * g_q +
-                    1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma +
-                    q_river)
+        sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term + q_river)
     else:
-        sl_fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
-                    q * sl.N_q * b_q * s_q * i_q * d_q * g_q +
-                    1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma)
+        sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term)
     
     # Output printing
+    print("The first term of general bearing capacity is ", round(q_ult_first_term, 2), " kPa.")
+    print("The second term of general bearing capacity is ", round(q_ult_second_term, 2), " kPa.")
+    print("The third term of general bearing capacity is ", round(q_ult_third_term, 2), " kPa.")
     print("The general bearing capacity is ", round(sl_fd.q_ult, 2), " kPa.")
-    print("The general bearing capacity force is ", round(sl_fd.q_ult * A_prime, 2), " kN.")
+    print("The general bearing capacity force is ", round(sl_fd.q_ult * A_prime, 2), " kN.", "\n")
+
+    # Code verification
+    print("Variables of the first therm of q_ult")
+    print("c is ", sl.cohesion, " kPa")
+    print("N_c is ", round(sl.N_c, 2))
+    print("b_c is ", round(b_c, 2))
+    print("s_c is ", round(s_c, 2))
+    print("i_c is ", round(i_c, 2))
+    print("d_c is ", round(d_c, 2))
+    print("g_c is ", round(g_c, 2), "\n")
+
+    print("Variables of the second therm of q_ult")
+    print("q is ", q, " kPa")
+    print("N_q is ", round(sl.N_q, 2))
+    print("b_q is ", round(b_q, 2))
+    print("s_q is ", round(s_q, 2))
+    print("i_q is ", round(i_q, 2))
+    print("d_q is ", round(d_q, 2))
+    print("g_q is ", round(g_q, 2), "\n")
+
+    print("Variables of the third therm of q_ult")
+    print("Equivalent soil unit weight is ", sl.prime_unit_weight, f"kN/m\N{superscript three}")
+    print("N_gamma is ", round(sl.N_gamma, 2))
+    print("B_prime is ", round(B_prime, 2), ' m')
+    print("b_gamma is ", round(b_gamma, 2))
+    print("s_gamma is ", round(s_gamma, 2))
+    print("i_gamma is ", round(i_gamma, 2))
+    print("d_gamma is ", round(d_gamma, 2))
+    print("g_gamma is ", round(g_gamma, 2))
+
+    # Store input data and results
+    storing_input_dictionary = {"B_prime": B_prime,
+                          "shape": shape,
+                          "D": D,
+                          "friction angle": sl.phi,
+                          "cohesion": sl.cohesion,
+                          "dry unit weight": sl.dry_unit_weight,
+                          "saturated unit weight": sl.sat_unit_weight,
+                          "beta": lat_sl.beta,
+                          "alpha": sl.alpha,
+                          "groundwater level": D_w,
+                          "horizontal load": horizontal_load,
+                          "vertical load": vertical_load,
+                          "moment transverse": moment_transverse,
+                          "moment longitudinal": moment_longitudinal,
+                          }
+    
+    storing_input_df = pd.DataFrame.from_dict([storing_input_dictionary])
+    storing_input_df.to_csv('drained_input_data.csv')
+
+    #storing_output_dictionary = {"c": sl.cohesion}
