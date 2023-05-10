@@ -1,31 +1,35 @@
 import numpy as np
-import models
 
-def capacity_brinch_hansen(sl, fd, beta, alpha, D, zwl, **kwargs):
+def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     """
     Function to calculate soil-foundation general bearing capacity according to Appendix D of EN7.
     arg sl: soil object
     arg fd: foundation object
-    arg beta: inclination below horizontal of lateral soil
-    arg eta: inclination above horizontal of foundation base
-    arg D: depth of lateral soil below mean riverbed level
-    arg **kwargs: it accepts any keyword arguments to be passed to another functions
+    arg lat_sl: lateral soil object
+    arg gw: groundwater object
+    arg loads: pier loads object
+    arg rvr: river object
+    arg sl_fd: soil-foundation object
     """
 
     # Pier loads
-    horizontal_load = H
-    vertical_load = V
-    moment_bridge_transverse = M_transverse
-    moment_bridge_longitudinal = M_longitudinal
+    horizontal_load = loads.horizontal_load
+    vertical_load = loads.vertical_load
+    moment_longitudinal = loads.moment_longitudinal
+    moment_transverse = loads.moment_transverse
 
     # A_prime
-    e_width = moment_bridge_longitudinal/V
-    e_length = moment_bridge_transverse/V
+    if vertical_load!=0:
+        e_width = moment_longitudinal/vertical_load
+        e_length = moment_transverse/vertical_load
+    else:
+        e_width = 0
+        e_length = 0
 
-    L_prime = fd.length - 2 * e_length
     B_prime = fd.width - 2 * e_width
+    L_prime = fd.length - 2 * e_length
     
-    shape = input('Input foundation shape: rectangular or squared or circular')
+    shape = input("Input foundation shape: 'rectangular' or 'squared' or 'circular'")
     if shape == 'rectangular' or 'squared':
         A_prime = B_prime * L_prime
     elif shape == 'circular':
@@ -40,9 +44,9 @@ def capacity_brinch_hansen(sl, fd, beta, alpha, D, zwl, **kwargs):
         sl.N_c = 2 + np.pi
 
     # b coefficients
-    b_q = np.power(1 - np.radians(alpha) * np.tan(np.radians(sl.phi)), 2)
+    b_q = np.power(1 - np.radians(sl.alpha) * np.tan(np.radians(sl.phi)), 2)
     if sl.phi == 0:
-        b_c = 1 - 2 * np.radians(alpha)/(sl.N_c)
+        b_c = 1 - 2 * np.radians(sl.alpha)/(sl.N_c)
     else:
         b_c = b_q - (1 - b_q)/(sl.N_c * np.tan(np.radians(sl.phi)))
     b_gamma = b_q
@@ -67,7 +71,7 @@ def capacity_brinch_hansen(sl, fd, beta, alpha, D, zwl, **kwargs):
     m_L = (2 + (L_prime/B_prime))/(1 + (L_prime/B_prime))
 
     if horizontal_load != 0:
-        horizontal_load_direction = input('Input one the following: B_prime direction or L_prime direction or Both B_prime and L_prime direction')
+        horizontal_load_direction = input("Input one the following: 'B_prime direction' or 'L_prime direction' or 'Both B_prime and L_prime directions'")
         if horizontal_load_direction == 'B_prime direction':
             m = m_B
         elif horizontal_load_direction == 'L_prime direction':
@@ -110,10 +114,10 @@ def capacity_brinch_hansen(sl, fd, beta, alpha, D, zwl, **kwargs):
     lateral_soil_slope_effects = input('Would you like to consider lateral soil slope effects?')
     if lateral_soil_slope_effects == 'yes':
         if sl.phi == 0:
-            g_c = np.radians(beta)/5.14
+            g_c = np.radians(lat_sl.beta)/5.14
         else:
             g_c = i_q - (1 - i_q)/(5.14 * np.tan(np.radians(sl.phi)))
-        g_q = np.power(1 - np.tan(np.radians(beta)), 2)
+        g_q = np.power(1 - np.tan(np.radians(lat_sl.beta)), 2)
         g_gamma = g_q
     else:
         g_c = 1
@@ -126,32 +130,36 @@ def capacity_brinch_hansen(sl, fd, beta, alpha, D, zwl, **kwargs):
     if gw.depth > D:
        lat_sl.unit_weight = sl.dry_unit_weight
     elif 0 < gw.depth <=D:
-        lat_sl.unit_weight = (sl.dry_unit_weight * gw.depth) + (sl.saturated_unit_weight - gw.unit_weight) * (D - gw.depth)/gw.depth
+        lat_sl.unit_weight = (sl.dry_unit_weight * gw.depth) + (sl.sat_unit_weight - gw.unit_weight) * (D - gw.depth)/gw.depth
     elif gw.depth == 0:
-        lat_sl.unit_weight = sl.saturated_unit_weight - gw.unit_weight
+        lat_sl.unit_weight = sl.sat_unit_weight - gw.unit_weight
 
     q = lat_sl.unit_weight * D # overburden pressure
 
     # River pressure
-    h = river.level
+    h = rvr.mean_level
     q_river = gw.unit_weight * h
 
     # Foundation soil
     if gw.depth > (B_prime + D):
         sl.prime_unit_weight = sl.dry_unit_weight
     elif D < gw.depth <= (B_prime + D):
-        sl.prime_unit_weight = (sl.saturated_unit_weight - gw.unit_weight) + (gw.depth - D)/(B_prime) * gw.unit_weight
+        sl.prime_unit_weight = (sl.sat_unit_weight - gw.unit_weight) + (gw.depth - D)/(B_prime) * gw.unit_weight
     elif gw.depth <= D:
-        sl.prime_unit_weight = sl.saturated_unit_weight - gw.unit_weight
+        sl.prime_unit_weight = sl.sat_unit_weight - gw.unit_weight
 
     # Capacity
     river_level_effects = input('Would you like to consider river level pressure effects?')
     if river_level_effects == 'yes':
-        fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
+        sl_fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
                     q * sl.N_q * b_q * s_q * i_q * d_q * g_q +
                     1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma +
                     q_river)
     else:
-        fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
+        sl_fd.q_ult = (sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c +
                     q * sl.N_q * b_q * s_q * i_q * d_q * g_q +
                     1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma)
+    
+    # Output printing
+    print("The general bearing capacity is ", round(sl_fd.q_ult, 2), " kPa.")
+    print("The general bearing capacity force is ", round(sl_fd.q_ult * A_prime, 2), " kN.")
