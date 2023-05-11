@@ -53,18 +53,19 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     b_gamma = b_q
 
     # s coefficients
+    if shape == 'rectangular':
+        s_q = 1 + (B_prime/L_prime) * np.sin(np.radians(sl.phi))
+        s_gamma = 1 - 0.3 * (B_prime/L_prime)
+    elif shape == 'circular' or 'squared':
+        s_q = 1 + np.sin(np.radians(sl.phi))
+        s_gamma = 1 - 0.3
+
     if sl.phi == 0:
         if shape == 'rectangular':
             s_c = 1 + 0.2 * (B_prime/L_prime)
         elif shape == 'squared' or ' circular':
             s_c = 1 + 0.2
     else:
-        if shape == 'rectangular':
-            s_q = 1 + (B_prime/L_prime) * np.sin(np.radians(sl.phi))
-            s_gamma = 1 - 0.3 * (B_prime/L_prime)
-        elif shape == 'circular' or 'squared':
-            s_q = 1 + np.sin(np.radians(sl.phi))
-            s_gamma = 1 - 0.3
         s_c = (s_q * sl.N_q - 1)/(sl.N_q - 1)
 
     # i coefficients
