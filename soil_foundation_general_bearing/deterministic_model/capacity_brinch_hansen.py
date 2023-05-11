@@ -163,6 +163,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
         sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term + q_river)
     else:
         sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term)
+
     
     # Output printing
     print("The first term of general bearing capacity is ", round(q_ult_first_term, 2), " kPa.")
@@ -173,7 +174,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
 
     # Code verification
     print("Variables of the first therm of q_ult")
-    print("c is ", sl.cohesion, " kPa")
+    print("c is ", round(sl.cohesion, 2), " kPa")
     print("N_c is ", round(sl.N_c, 2))
     print("b_c is ", round(b_c, 2))
     print("s_c is ", round(s_c, 2))
@@ -182,7 +183,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     print("g_c is ", round(g_c, 2), "\n")
 
     print("Variables of the second therm of q_ult")
-    print("q is ", q, " kPa")
+    print("q is ", round(q, 2), " kPa")
     print("N_q is ", round(sl.N_q, 2))
     print("b_q is ", round(b_q, 2))
     print("s_q is ", round(s_q, 2))
@@ -218,6 +219,33 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
                           }
     
     storing_input_df = pd.DataFrame.from_dict([storing_input_dictionary])
-    storing_input_df.to_csv('drained_input_data.csv')
+    file_name_input_data = input("Input file name of input data.csv")
+    storing_input_df.to_csv(file_name_input_data)
 
-    #storing_output_dictionary = {"c": sl.cohesion}
+    storing_output_dictionary = {"c": sl.cohesion,
+                                 "N_c": round(sl.N_c, 2),
+                                 "b_c": round(b_c, 2),
+                                 "s_c": round(s_c, 2),
+                                 "i_c": round(i_c, 2),
+                                 "d_c": round(d_c, 2),
+                                 "g_c": round(g_c, 2),
+                                 "q": round(q, 2),
+                                 "N_q": round(sl.N_q, 2),
+                                 "b_q": round(b_q, 2),
+                                 "s_q": round(s_q, 2),
+                                 "i_q": round(i_q, 2),
+                                 "d_q": round(d_q, 2),
+                                 "g_q": round(g_q, 2),
+                                 "N_gamma": round(sl.N_gamma, 2),
+                                 "B_prime": round(B_prime, 2),
+                                 "b_gamma": round(b_gamma, 2),
+                                 "s_gamma": round(s_gamma, 2),
+                                 "i_gamma": round(i_gamma, 2),
+                                 "d_gamma": round(d_gamma, 2),
+                                 "g_gamma": round(g_gamma, 2)}
+    
+    storing_output_df = pd.DataFrame.from_dict([storing_output_dictionary])
+    file_name_output_data = input("Input file name of output data.csv")
+    storing_output_df.to_csv(file_name_output_data)
+    
+    #return sl_fd.q_ult
