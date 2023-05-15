@@ -55,7 +55,10 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     # s coefficients
     if shape == 'rectangular':
         s_q = 1 + (B_prime/L_prime) * np.sin(np.radians(sl.phi))
-        s_gamma = 1 - 0.3 * (B_prime/L_prime)
+        if (1 - 0.3 * (B_prime/L_prime)) > 0:
+            s_gamma = 1 - 0.3 * (B_prime/L_prime)
+        else:
+            s_gamma = 0
     elif shape == 'circular' or 'squared':
         s_q = 1 + np.sin(np.radians(sl.phi))
         s_gamma = 1 - 0.3
@@ -69,11 +72,12 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
         s_c = (s_q * sl.N_q - 1)/(sl.N_q - 1)
 
     # i coefficients
-    m_B = (2 + (B_prime/L_prime))/(1 + (B_prime/L_prime))
-    m_L = (2 + (L_prime/B_prime))/(1 + (L_prime/B_prime))
-
     if horizontal_load != 0:
+        m_B = (2 + (B_prime/L_prime))/(1 + (B_prime/L_prime))
+        m_L = (2 + (L_prime/B_prime))/(1 + (L_prime/B_prime))
+        
         horizontal_load_direction = input("Input one the following: 'B_prime direction' or 'L_prime direction' or 'Both B_prime and L_prime directions'")
+        
         if horizontal_load_direction == 'B_prime direction':
             m = m_B
         elif horizontal_load_direction == 'L_prime direction':
@@ -81,22 +85,28 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
         elif horizontal_load_direction == 'Both B_prime and L_prime direction':
             teta = 0
             m = m_L * np.power(np.cos(np.radians(teta)),2) + m_B * np.power(np.sin(np.radians(teta)), 2)
-
         i_q = np.power(1 - horizontal_load/(vertical_load + A_prime * sl.cohesion * 1/np.tan(np.radians(sl.phi))), m)
         i_gamma = np.power(1 - horizontal_load/(vertical_load + A_prime * sl.cohesion * 1/np.tan(np.radians(sl.phi))), m+1)
     else:
         i_q = 1
         i_gamma = 1
 
-    if sl.phi ==0:
-        if horizontal_load <= A_prime * sl.cohesion:
-            i_c = 1/2 * (1 + np.sqrt(1-(horizontal_load/(A_prime * sl.cohesion))))
+    if horizontal_load != 0:
+        if sl.phi ==0:
+            if horizontal_load <= A_prime * sl.cohesion:
+                i_c = 1/2 * (1 + np.sqrt(1-(horizontal_load/(A_prime * sl.cohesion))))
+            else:
+                horizontal_load = A_prime * sl.cohesion
+                i_c = 1/2 * (1 + np.sqrt(1-(horizontal_load/(A_prime * sl.cohesion))))
         else:
-            horizontal_load = A_prime * sl.cohesion
-            i_c = 1/2 * (1 + np.sqrt(1-(horizontal_load/(A_prime * sl.cohesion))))
-    else:
-        i_c = i_q - (1 - i_q)/(sl.N_c * np.tan(np.radians(sl.phi)))
-
+            i_c = i_q - (1 - i_q)/(sl.N_c * np.tan(np.radians(sl.phi)))
+    
+    elif horizontal_load == 0:
+        if sl.phi == 0:
+            i_c = 1
+        else:
+            i_c = 1
+    
     # Lateral soil
     D = lat_sl.depth
 
@@ -108,18 +118,14 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
             k = D/B_prime
         else:
             k = 1/np.tan(D/B_prime)
-        if sl.phi == 0:
-            d_c = 0.4 * k
-        else:
-            d_c = 1.0 + 0.4 * k
+        d_c = 1.0 + 0.4 * k
         d_q = 1 + 2 * np.tan(np.radians(sl.phi)) * np.power((1 - np.sin(np.radians(sl.phi))),2) * k
     else:
         d_c = 1
         d_q = 1
 
     # g coefficients
-    lateral_soil_slope_effects = input('Would you like to consider lateral soil slope effects?')
-    if lateral_soil_slope_effects == 'yes':
+    if lat_sl.beta!=0:
         if sl.phi == 0:
             g_c = np.radians(lat_sl.beta)/(5.14/2)
         else:
@@ -160,12 +166,12 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
     q_ult_first_term = sl.cohesion * sl.N_c * b_c * s_c * i_c * d_c * g_c
     q_ult_second_term = q * sl.N_q * b_q * s_q * i_q * d_q * g_q
     q_ult_third_term = 1/2 * sl.prime_unit_weight * B_prime * sl.N_gamma * b_gamma * s_gamma * i_gamma * d_gamma * g_gamma
+    
     if river_level_effects == 'yes':
         sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term + q_river)
     else:
         sl_fd.q_ult = (q_ult_first_term + q_ult_second_term + q_ult_third_term)
 
-    
     # Output printing
     print("The first term of general bearing capacity is ", round(q_ult_first_term, 2), " kPa.")
     print("The second term of general bearing capacity is ", round(q_ult_second_term, 2), " kPa.")
