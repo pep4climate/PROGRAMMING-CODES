@@ -130,7 +130,7 @@ def capacity_brinch_hansen(sl, fd, lat_sl, gw, loads, rvr, sl_fd):
             g_c = np.radians(lat_sl.beta)/(5.14/2)
         else:
             g_c = 1 - np.radians(lat_sl.beta)/(5.14/2) 
-        g_q = np.power(1 - 1/2 * np.tan(np.radians(lat_sl.beta)), 2)
+        g_q = np.power(1 - 1/2 * np.tan(np.radians(lat_sl.beta)), 5)
         g_gamma = g_q
     else:
         g_c = 1
